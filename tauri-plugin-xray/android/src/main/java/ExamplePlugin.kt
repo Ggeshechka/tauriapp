@@ -19,7 +19,6 @@ class MyVpnService : VpnService(), DialerController {
     private val CHANNEL_ID = "xray_vpn_service"
     private val NOTIFICATION_ID = 1
 
-    // Метод интерфейса DialerController для защиты сокетов Go-процесса
     override fun protectFd(fd: Long): Boolean {
         val success = protect(fd.toInt())
         Log.d("XRAY_DEBUG", "Protecting socket FD $fd: $success")
