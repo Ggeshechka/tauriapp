@@ -1,0 +1,128 @@
+{
+    "log": {
+        "loglevel": "warning"
+    },
+    "fakedns": [
+        {
+            "ipPool": "198.18.0.0/15",
+            "poolSize": 65535
+        }
+    ],
+    "dns": {
+        "queryStrategy": "IPIfNonMatch",
+        "servers": [
+            "fakedns",
+            {
+                "address": "https://dns.google/dns-query",
+                "skipFallback": false
+            }
+        ],
+        "tag": "dns_out"
+    },
+    "inbounds": [
+        {
+            "port": 0,
+            "protocol": "tun",
+            "settings": {
+                "name": "xray0",
+                "MTU": 1500
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": ["http", "tls", "fakedns"],
+                "routeOnly": true
+            },
+            "tag": "tun-in"
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "vless",
+            "settings": {
+                "vnext": [
+                    {
+                        "address": "de.safelane.pro",
+                        "port": 443,
+                        "users": [
+                            {
+                                "encryption": "none",
+                                "flow": "xtls-rprx-vision",
+                                "id": "b329191a-6c5c-447a-800a-482cee25693b"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "realitySettings": {
+                    "fingerprint": "chrome",
+                    "publicKey": "NP5h1YxJALizPrsdRAuk1Sc2JAWYhtg3Pe0JqGSyVhY",
+                    "serverName": "de.safelane.pro",
+                    "shortId": "69d0c943a62745d6",
+                    "show": false
+                },
+                "security": "reality"
+            },
+            "tag": "proxy"
+        },
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "blackhole",
+            "tag": "block"
+        }
+    ],
+    "policy": {
+        "system": {
+            "statsOutboundDownlink": true,
+            "statsOutboundUplink": true
+        }
+    },
+    "routing": {
+        "domainStrategy": "IPIfNonMatch",
+        "rules": [
+            {
+                "domain": [
+                    "habr.com",
+                    "4pda.to",
+                    "4pda.ru",
+                    "kemono.su",
+                    "jut.su",
+                    "kara.su",
+                    "theins.ru",
+                    "tvrain.ru",
+                    "echo.msk.ru",
+                    "the-village.ru",
+                    "snob.ru",
+                    "novayagazeta.ru",
+                    "moscowtimes.ru"
+                ],
+                "outboundTag": "proxy"
+            },
+            {
+                "domain": [
+                    "geosite:private",
+                    "geosite:apple",
+                    "geosite:apple-pki",
+                    "geosite:huawei",
+                    "geosite:xiaomi",
+                    "geosite:category-android-app-download",
+                    "geosite:f-droid",
+                    "geosite:twitch",
+                    "geosite:category-ru"
+                ],
+                "outboundTag": "direct"
+            },
+            {
+                "ip": [
+                    "geoip:ru",
+                    "geoip:private"
+                ],
+                "outboundTag": "direct"
+            }
+        ]
+    }
+}
