@@ -142,19 +142,6 @@ class XrayVpnService : VpnService(), DialerController {
         }
     }
 
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        val restartIntent = Intent(applicationContext, this.javaClass)
-        restartIntent.setPackage(packageName)
-        
-        try {
-            ContextCompat.startForegroundService(applicationContext, restartIntent)
-        } catch (e: Exception) {
-            Log.e("XrayVPN", "Не удалось перезапустить сервис", e)
-        }
-        
-        super.onTaskRemoved(rootIntent)
-    }
-
     override fun onRevoke() {
         stopVpn()
         super.onRevoke()
