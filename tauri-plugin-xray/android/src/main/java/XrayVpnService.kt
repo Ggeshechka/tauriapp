@@ -125,17 +125,15 @@ class XrayVpnService : VpnService(), DialerController {
     }
 
     private fun stopVpn() {
-        // Меняем статус и обновляем шторку
-        getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE).edit().putBoolean("is_running", false).apply()
+        getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE).edit().putBoolean("is_running", false).commit()
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
         } catch (e: Exception) {}
 
-        vpnInterface?.close()
+        try { vpnInterface?.close() } catch (e: Exception) {}
         vpnInterface = null
-        try {
-            LibXray.stopXray()
-        } catch (e: Exception) {}
+        
+        try { LibXray.stopXray() } catch (e: Exception) {}
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -144,6 +142,8 @@ class XrayVpnService : VpnService(), DialerController {
             stopForeground(true)
         }
         stopSelf()
+        
+        System.exit(0)
     }
 
     override fun onDestroy() {

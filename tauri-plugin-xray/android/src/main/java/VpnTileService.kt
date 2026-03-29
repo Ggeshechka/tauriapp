@@ -25,7 +25,7 @@ class VpnTileService : TileService() {
 
         if (isRunning) {
             // Мгновенно выключаем кнопку визуально
-            prefs.edit().putBoolean("is_running", false).apply()
+            prefs.edit().putBoolean("is_running", false).commit()
             tile.state = Tile.STATE_INACTIVE
             tile.updateTile()
 
@@ -42,7 +42,7 @@ class VpnTileService : TileService() {
                 startActivityAndCollapse(intent)
             } else {
                 // Мгновенно включаем кнопку визуально
-                prefs.edit().putBoolean("is_running", true).apply()
+                prefs.edit().putBoolean("is_running", true).commit()
                 tile.state = Tile.STATE_ACTIVE
                 tile.updateTile()
 
