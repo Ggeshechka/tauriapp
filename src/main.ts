@@ -1,22 +1,34 @@
 import { invoke } from "@tauri-apps/api/core";
 
-let greetInputEl: HTMLInputElement | null;
-let greetMsgEl: HTMLElement | null;
+let statusMsgEl: HTMLElement | null;
 
-async function greet() {
-  if (greetMsgEl && greetInputEl) {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    greetMsgEl.textContent = await invoke("greet", {
-      name: greetInputEl.value,
+async function sendVpnCommand(action: string) {
+  try {
+    const res: any = await invoke("plugin:xray|ping", {
+      value: JSON.stringify({ action: action })
     });
+    
+    if (action === "status") {
+      if (statusMsgEl) statusMsgEl.textContent = res.running ? "RUNNING" : "STOPPED";
+    } else {
+      // Обновляем статус после нажатия Start/Stop
+      checkStatus();
+    }
+  } catch (error) {
+    console.error("VPN Error:", error);
   }
 }
 
+function checkStatus() {
+  sendVpnCommand("status");
+}
+
 window.addEventListener("DOMContentLoaded", () => {
-  greetInputEl = document.querySelector("#greet-input");
-  greetMsgEl = document.querySelector("#greet-msg");
-  document.querySelector("#greet-form")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    greet();
-  });
+  statusMsgEl = document.querySelector("#status-msg");
+  
+  document.querySelector("#btn-start")?.addEventListener("click", () => sendVpnCommand("start"));
+  document.querySelector("#btn-stop")?.addEventListener("click", () => sendVpnCommand("stop"));
+
+  // Проверка статуса при загрузке приложения
+  checkStatus();
 });

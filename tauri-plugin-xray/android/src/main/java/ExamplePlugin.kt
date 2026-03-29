@@ -9,6 +9,11 @@ import android.provider.Settings
 import android.webkit.WebView
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Plugin
+import org.json.JSONObject
+import androidx.core.content.ContextCompat
+import app.tauri.annotation.Command
+import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSObject
 
 @TauriPlugin
 class ExamplePlugin(private val activity: Activity): Plugin(activity) {
@@ -31,6 +36,44 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
         val intent = VpnService.prepare(activity)
         if (intent != null) {
             activity.startActivityForResult(intent, 1)
+        }
+    }
+
+    @Command
+    fun ping(invoke: Invoke) {
+        val text = invoke.getString("value") ?: "{}"
+        
+        try {
+            val json = JSONObject(text)
+            val action = json.optString("action")
+            val ret = JSObject()
+
+            when (action) {
+                "start" -> {
+                    val intent = Intent(activity, XrayVpnService::class.java).apply { this.action = "START" }
+                    ContextCompat.startForegroundService(activity, intent)
+                    activity.getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE).edit().putBoolean("is_running", true).commit()
+                    ret.put("success", true)
+                }
+                "stop" -> {
+                    val intent = Intent(activity, XrayVpnService::class.java).apply { this.action = "STOP" }
+                    ContextCompat.startForegroundService(activity, intent)
+                    activity.getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE).edit().putBoolean("is_running", false).commit()
+                    ret.put("success", true)
+                }
+                "status" -> {
+                    val isRunning = activity.getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE).getBoolean("is_running", false)
+                    ret.put("running", isRunning)
+                }
+                else -> {
+                    invoke.reject("Неизвестное действие: $action")
+                    return
+                }
+            }
+            invoke.resolve(ret)
+            
+        } catch (e: Exception) {
+            invoke.reject("Ошибка парсинга JSON", e)
         }
     }
 }
