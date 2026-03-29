@@ -13,6 +13,7 @@ import android.provider.Settings
 import android.util.Log
 import android.webkit.WebView
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Plugin
 import libXray.LibXray
@@ -23,11 +24,19 @@ import java.io.File
 class ExamplePlugin(private val activity: Activity): Plugin(activity) {
     override fun load(webView: WebView) {
         super.load(webView)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (activity.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                activity.requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
             intent.data = Uri.parse("package:${activity.packageName}")
             activity.startActivity(intent)
         }
+        
         val intent = VpnService.prepare(activity)
         if (intent != null) {
             activity.startActivityForResult(intent, 1)
@@ -43,15 +52,31 @@ class XrayVpnService : VpnService(), DialerController {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
+        
+        // ВНИМАНИЕ: Замени "com.pro100.tauriapp.MainActivity" на свой пакет, если он изменился
+        val pendingIntent = Intent(this, Class.forName("com.pro100.tauriapp.MainActivity")).let { notificationIntent ->
+            android.app.PendingIntent.getActivity(this, 0, notificationIntent, android.app.PendingIntent.FLAG_IMMUTABLE)
+        }
+
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("VPN")
-            .setContentText("Работает")
-            .setSmallIcon(android.R.drawable.ic_secure)
+            .setContentTitle("Xray VPN")
+            .setContentText("Защита активирована")
+            .setSmallIcon(android.R.drawable.ic_secure) 
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+            .setContentIntent(pendingIntent)
             .build()
 
-        startForeground(1, notification)
-        Thread { startCore() }.start()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(1, notification)
+        }
+
+        if (vpnInterface == null) {
+            Thread { startCore() }.start()
+        }
+        
         return START_STICKY
     }
 
@@ -79,12 +104,16 @@ class XrayVpnService : VpnService(), DialerController {
             vpnInterface = Builder()
                 .setSession("Xray-TUN")
                 .addAddress("10.8.0.1", 24)
-                .addDnsServer("8.8.8.8")    
+                .addDnsServer("8.8.8.8")
                 .addRoute("0.0.0.0", 0)
                 .addDisallowedApplication(packageName)
                 .establish()
 
             val tunFd = vpnInterface?.fd ?: return
+
+            try {
+                android.system.Os.setenv("GOMEMLIMIT", "40MiB", true)
+            } catch (e: Exception) {}
 
             LibXray.initDns(this, "8.8.8.8:53")
 
@@ -95,7 +124,6 @@ class XrayVpnService : VpnService(), DialerController {
             val datDir = filesDir.absolutePath
             val configPath = File(filesDir, "config.json").absolutePath
 
-            // Передаем tunFd 4-ым аргументом
             val runRequest = LibXray.newXrayRunRequest(datDir, "", configPath, tunFd.toLong())
             val result = LibXray.runXray(runRequest)
             Log.d("XrayVPN", "Run Xray Result: $result")
@@ -117,15 +145,39 @@ class XrayVpnService : VpnService(), DialerController {
     override fun onTaskRemoved(rootIntent: Intent?) {
         val restartIntent = Intent(applicationContext, this.javaClass)
         restartIntent.setPackage(packageName)
-        startService(restartIntent)
+        
+        try {
+            ContextCompat.startForegroundService(applicationContext, restartIntent)
+        } catch (e: Exception) {
+            Log.e("XrayVPN", "Не удалось перезапустить сервис", e)
+        }
+        
         super.onTaskRemoved(rootIntent)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onRevoke() {
+        stopVpn()
+        super.onRevoke()
+    }
+
+    private fun stopVpn() {
         vpnInterface?.close()
+        vpnInterface = null
         try {
             LibXray.stopXray()
         } catch (e: Exception) {}
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        stopSelf()
+    }
+
+    override fun onDestroy() {
+        stopVpn()
+        super.onDestroy()
     }
 }
