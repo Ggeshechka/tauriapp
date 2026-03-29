@@ -6,11 +6,13 @@
     <title>VPN Control</title>
     <script type="module" src="/src/main.ts" defer></script>
   </head>
-  <body>
+  <body style="background: #1e1e1e; color: white; font-family: sans-serif; padding: 20px;">
     <main>
-      <h1>VPN: <span id="status-msg">Check...</span></h1>
-      <button id="btn-start">Start VPN</button>
-      <button id="btn-stop">Stop VPN</button>
+      <h1>VPN Status: <span id="status-msg" style="color: #ffcc00;">Check...</span></h1>
+      <div style="margin-top: 20px;">
+        <button id="btn-start" style="padding: 10px 20px; font-size: 16px; margin-right: 10px; cursor: pointer;">Start VPN</button>
+        <button id="btn-stop" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Stop VPN</button>
+      </div>
     </main>
   </body>
 </html>
