@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import androidx.core.content.ContextCompat
 
 class VpnTileService : TileService() {
 
@@ -28,9 +29,9 @@ class VpnTileService : TileService() {
             tile.state = Tile.STATE_INACTIVE
             tile.updateTile()
 
-            // Посылаем команду на остановку
+            // Посылаем команду на остановку, используя startForegroundService
             val intent = Intent(this, XrayVpnService::class.java).apply { action = "STOP" }
-            startService(intent)
+            ContextCompat.startForegroundService(this, intent)
         } else {
             val vpnIntent = VpnService.prepare(this)
             if (vpnIntent != null) {
@@ -47,7 +48,7 @@ class VpnTileService : TileService() {
 
                 // Посылаем команду на запуск
                 val intent = Intent(this, XrayVpnService::class.java).apply { action = "START" }
-                startService(intent)
+                ContextCompat.startForegroundService(this, intent)
             }
         }
     }
