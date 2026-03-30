@@ -2,8 +2,10 @@ package com.plugin.xray
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -14,8 +16,31 @@ import libXray.DialerController
 import java.io.File
 
 class XrayVpnService : VpnService(), DialerController {
+    companion object {
+        var isRunning = false
+    }
+
     private var vpnInterface: ParcelFileDescriptor? = null
     private val channelId = "vpn_service_channel"
+
+    private val statusReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val reply = Intent("com.plugin.xray.VPN_STATUS_REPLY")
+            reply.putExtra("isRunning", isRunning)
+            reply.setPackage(packageName)
+            sendBroadcast(reply)
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        val filter = IntentFilter("com.plugin.xray.REQUEST_VPN_STATUS")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(statusReceiver, filter)
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "STOP") {
@@ -23,14 +48,14 @@ class XrayVpnService : VpnService(), DialerController {
             return START_NOT_STICKY
         }
 
-        // Сохраняем статус и обновляем шторку
-        getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE).edit().putBoolean("is_running", true).apply()
+        isRunning = true
+
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
         } catch (e: Exception) {}
 
         createNotificationChannel()
-        
+
         val pendingIntent = Intent(this, Class.forName("com.pro100.tauriapp.MainActivity")).let { notificationIntent ->
             android.app.PendingIntent.getActivity(this, 0, notificationIntent, android.app.PendingIntent.FLAG_IMMUTABLE)
         }
@@ -38,7 +63,7 @@ class XrayVpnService : VpnService(), DialerController {
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Xray VPN")
             .setContentText("Защита активирована")
-            .setSmallIcon(android.R.drawable.ic_secure) 
+            .setSmallIcon(android.R.drawable.ic_secure)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
@@ -53,7 +78,7 @@ class XrayVpnService : VpnService(), DialerController {
         if (vpnInterface == null) {
             Thread { startCore() }.start()
         }
-        
+
         return START_STICKY
     }
 
@@ -125,7 +150,7 @@ class XrayVpnService : VpnService(), DialerController {
     }
 
     private fun stopVpn() {
-        getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE).edit().putBoolean("is_running", false).commit()
+        isRunning = false
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
         } catch (e: Exception) {}
@@ -141,6 +166,8 @@ class XrayVpnService : VpnService(), DialerController {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
+        
+        try { unregisterReceiver(statusReceiver) } catch (e: Exception) {}
         stopSelf()
         
         System.exit(0)

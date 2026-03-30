@@ -4,24 +4,29 @@ let statusMsgEl: HTMLElement | null;
 
 async function sendVpnCommand(action: string) {
   try {
-    // В Tauri 2.0 данные для плагина нужно оборачивать в payload
     const res: any = await invoke("plugin:xray|ping", {
       payload: {
         value: JSON.stringify({ action: action })
       }
     });
     
+    // Распаковываем ответ из строки, которую вернул Kotlin -> Rust -> TS
+    const data = JSON.parse(res.value || "{}");
+    
     if (action === "status") {
       if (statusMsgEl) {
-        statusMsgEl.textContent = res.running ? "RUNNING" : "STOPPED";
-        statusMsgEl.style.color = res.running ? "#00ff00" : "#ff4444";
+        statusMsgEl.textContent = data.running ? "RUNNING" : "STOPPED";
+        statusMsgEl.style.color = data.running ? "#00ff00" : "#ff4444";
       }
     } else {
-      // Если нажали Start или Stop, запрашиваем актуальный статус
       setTimeout(checkStatus, 500); 
     }
   } catch (error) {
     console.error("VPN Error:", error);
+    if (statusMsgEl) {
+        statusMsgEl.textContent = "ERROR: " + error;
+        statusMsgEl.style.color = "#ffcc00";
+    }
   }
 }
 
@@ -34,7 +39,7 @@ window.addEventListener("DOMContentLoaded", () => {
   
   document.querySelector("#btn-start")?.addEventListener("click", () => sendVpnCommand("start"));
   document.querySelector("#btn-stop")?.addEventListener("click", () => sendVpnCommand("stop"));
+  document.querySelector("#btn-status")?.addEventListener("click", checkStatus);
 
-  // Проверяем статус при загрузке
   checkStatus();
 });
