@@ -2,12 +2,12 @@ package com.plugin.xray
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.VpnService
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -23,30 +23,11 @@ class XrayVpnService : VpnService(), DialerController {
     private var vpnInterface: ParcelFileDescriptor? = null
     private val channelId = "vpn_service_channel"
 
-    private fun notifyStateChanged(isRunning: Boolean) {
+    private fun notifyStateChanged(state: Boolean) {
         val intent = Intent("com.plugin.xray.VPN_STATE_CHANGED")
-        intent.putExtra("running", isRunning)
+        intent.putExtra("running", state)
         intent.setPackage(packageName)
         sendBroadcast(intent)
-    }
-    
-    private val statusReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val reply = Intent("com.plugin.xray.VPN_STATUS_REPLY")
-            reply.putExtra("isRunning", isRunning)
-            reply.setPackage(packageName)
-            sendBroadcast(reply)
-        }
-    }
-
-    override fun onCreate() {
-        super.onCreate()
-        val filter = IntentFilter("com.plugin.xray.REQUEST_VPN_STATUS")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(statusReceiver, filter)
-        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -56,7 +37,7 @@ class XrayVpnService : VpnService(), DialerController {
         }
 
         isRunning = true
-        notifyStateChanged(true)
+        notifyStateChanged(true) // Отправляем сигнал "ВКЛЮЧЕН" в интерфейс
 
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
@@ -159,7 +140,8 @@ class XrayVpnService : VpnService(), DialerController {
 
     private fun stopVpn() {
         isRunning = false
-        notifyStateChanged(false)
+        notifyStateChanged(false) // Отправляем сигнал "ВЫКЛЮЧЕН" в интерфейс
+        
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
         } catch (e: Exception) {}
@@ -175,11 +157,12 @@ class XrayVpnService : VpnService(), DialerController {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
-        
-        try { unregisterReceiver(statusReceiver) } catch (e: Exception) {}
         stopSelf()
         
-        System.exit(0)
+        // Даем ядру Android 200мс на доставку события перед убийством процесса
+        Handler(Looper.getMainLooper()).postDelayed({
+            System.exit(0)
+        }, 200)
     }
 
     override fun onDestroy() {
