@@ -159,6 +159,7 @@ class XrayVpnService : VpnService(), DialerController {
 
     private fun stopVpn() {
         isRunning = false
+        notifyStateChanged(false)
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
         } catch (e: Exception) {}
