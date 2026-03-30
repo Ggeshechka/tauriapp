@@ -16,18 +16,17 @@ import libXray.DialerController
 import java.io.File
 
 class XrayVpnService : VpnService(), DialerController {
-    companion object {
-        var isRunning = false
-    }
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private val channelId = "vpn_service_channel"
 
-    private fun notifyStateChanged(state: Boolean) {
-        val intent = Intent("com.plugin.xray.VPN_STATE_CHANGED")
-        intent.putExtra("running", state)
-        intent.setPackage(packageName)
-        sendBroadcast(intent)
+    private fun updateStatusFile(isRunning: Boolean) {
+        try {
+            val file = File(filesDir, "xray_status.txt")
+            file.writeText(if (isRunning) "1" else "0")
+        } catch (e: Exception) {
+            Log.e("XrayVPN", "Ошибка записи статуса", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -36,8 +35,7 @@ class XrayVpnService : VpnService(), DialerController {
             return START_NOT_STICKY
         }
 
-        isRunning = true
-        notifyStateChanged(true) // Отправляем сигнал "ВКЛЮЧЕН" в интерфейс
+        updateStatusFile(true)
 
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
@@ -139,8 +137,7 @@ class XrayVpnService : VpnService(), DialerController {
     }
 
     private fun stopVpn() {
-        isRunning = false
-        notifyStateChanged(false) // Отправляем сигнал "ВЫКЛЮЧЕН" в интерфейс
+        updateStatusFile(false)
         
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
@@ -159,10 +156,9 @@ class XrayVpnService : VpnService(), DialerController {
         }
         stopSelf()
         
-        // Даем ядру Android 200мс на доставку события перед убийством процесса
         Handler(Looper.getMainLooper()).postDelayed({
             System.exit(0)
-        }, 200)
+        }, 100)
     }
 
     override fun onDestroy() {
