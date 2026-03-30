@@ -5,14 +5,20 @@ import android.net.VpnService
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.core.content.ContextCompat
+import java.io.File
 
 class VpnTileService : TileService() {
 
+    private fun isVpnRunning(): Boolean {
+        return try {
+            val file = File(filesDir, "xray_status.txt")
+            file.exists() && file.readText().trim() == "1"
+        } catch (e: Exception) { false }
+    }
+
     override fun onStartListening() {
         val tile = qsTile ?: return
-        val isRunning = XrayVpnService.isRunning
-        
-        tile.state = if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        tile.state = if (isVpnRunning()) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = "Xray VPN"
         tile.updateTile()
     }
@@ -20,8 +26,7 @@ class VpnTileService : TileService() {
     override fun onClick() {
         val tile = qsTile ?: return
         
-        if (XrayVpnService.isRunning) {
-            XrayVpnService.isRunning = false
+        if (isVpnRunning()) {
             tile.state = Tile.STATE_INACTIVE
             tile.updateTile()
 
@@ -35,7 +40,6 @@ class VpnTileService : TileService() {
                 }
                 startActivityAndCollapse(intent)
             } else {
-                XrayVpnService.isRunning = true
                 tile.state = Tile.STATE_ACTIVE
                 tile.updateTile()
 
@@ -43,5 +47,6 @@ class VpnTileService : TileService() {
                 ContextCompat.startForegroundService(this, intent)
             }
         }
+ 
     }
 }
