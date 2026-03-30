@@ -6,6 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.RemoteCallbackList
 import androidx.core.app.NotificationCompat
@@ -14,27 +17,42 @@ import libXray.DialerController
 import java.io.File
 
 class XrayVpnService : VpnService(), DialerController {
+    companion object {
+        var isRunning = false
+    }
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private val channelId = "vpn_service_channel"
+    private val callbacks = RemoteCallbackList<IXrayCallback>()
 
-    private val statusReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val reply = Intent("com.plugin.xray.VPN_STATUS_REPLY")
-            reply.putExtra("isRunning", isRunning)
-            reply.setPackage(packageName)
-            sendBroadcast(reply)
-        }
+    private val binder = object : IXrayStatus.Stub() {
+        override fun isRunning(): Boolean = XrayVpnService.isRunning
+        override fun registerCallback(cb: IXrayCallback?) { if (cb != null) callbacks.register(cb) }
+        override fun unregisterCallback(cb: IXrayCallback?) { if (cb != null) callbacks.unregister(cb) }
     }
 
-    override fun onCreate() {
-        super.onCreate()
-        val filter = IntentFilter("com.plugin.xray.REQUEST_VPN_STATUS")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(statusReceiver, filter)
+    override fun onBind(intent: Intent?): IBinder? {
+        if (intent?.action == "BIND_STATUS") return binder
+        return super.onBind(intent)
+    }
+
+    private fun notifyStateChanged(state: Boolean) {
+        isRunning = state
+        
+        val n = callbacks.beginBroadcast()
+        for (i in 0 until n) {
+            try { callbacks.getBroadcastItem(i).onStateChanged(state) } catch (e: Exception) {}
         }
+        callbacks.finishBroadcast()
+
+        val intent = Intent("com.plugin.xray.ACTION_VPN_STATE")
+        intent.putExtra("running", state)
+        intent.setPackage(packageName)
+        sendBroadcast(intent)
+
+        try {
+            android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
+        } catch (e: Exception) {}
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -43,12 +61,7 @@ class XrayVpnService : VpnService(), DialerController {
             return START_NOT_STICKY
         }
 
-        isRunning = true
-
-        try {
-            android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
-        } catch (e: Exception) {}
-
+        notifyStateChanged(true)
         createNotificationChannel()
 
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
@@ -136,11 +149,7 @@ class XrayVpnService : VpnService(), DialerController {
     }
 
     private fun stopVpn() {
-        isRunning = false
-        try {
-            android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
-        } catch (e: Exception) {}
-
+        notifyStateChanged(false)
         try { vpnInterface?.close() } catch (e: Exception) {}
         vpnInterface = null
         try { LibXray.stopXray() } catch (e: Exception) {}
@@ -153,7 +162,9 @@ class XrayVpnService : VpnService(), DialerController {
         }
         stopSelf()
         
-        System.exit(0)
+        Handler(Looper.getMainLooper()).postDelayed({
+            System.exit(0)
+        }, 300)
     }
 
     override fun onDestroy() {

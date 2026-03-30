@@ -19,12 +19,11 @@ async function sendVpnCommand(action: string) {
     const data = JSON.parse(res.value || "{}");
     
     if (action === "status") {
-      if (statusMsgEl) {
-        statusMsgEl.textContent = data.running ? "RUNNING" : "STOPPED";
-        statusMsgEl.style.color = data.running ? "#00ff00" : "#ff4444";
-      }
-    } else {
-      setTimeout(checkStatus, 500); 
+      updateUi(data.running);
+    } else if (action === "start") {
+      updateUi(true);
+    } else if (action === "stop") {
+      updateUi(false);
     }
   } catch (error) {
     console.error("VPN Error:", error);
@@ -57,4 +56,4 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.addEventListener("focus", () => {
     sendVpnCommand("status");
   });
-});m
+});
