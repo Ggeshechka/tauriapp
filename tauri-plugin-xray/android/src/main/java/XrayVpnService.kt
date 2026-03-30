@@ -6,10 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.os.ParcelFileDescriptor
-import android.util.Log
+import android.os.RemoteCallbackList
 import androidx.core.app.NotificationCompat
 import libXray.LibXray
 import libXray.DialerController
@@ -20,12 +18,22 @@ class XrayVpnService : VpnService(), DialerController {
     private var vpnInterface: ParcelFileDescriptor? = null
     private val channelId = "vpn_service_channel"
 
-    private fun updateStatusFile(isRunning: Boolean) {
-        try {
-            val file = File(filesDir, "xray_status.txt")
-            file.writeText(if (isRunning) "1" else "0")
-        } catch (e: Exception) {
-            Log.e("XrayVPN", "Ошибка записи статуса", e)
+    private val statusReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val reply = Intent("com.plugin.xray.VPN_STATUS_REPLY")
+            reply.putExtra("isRunning", isRunning)
+            reply.setPackage(packageName)
+            sendBroadcast(reply)
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        val filter = IntentFilter("com.plugin.xray.REQUEST_VPN_STATUS")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(statusReceiver, filter)
         }
     }
 
@@ -35,7 +43,7 @@ class XrayVpnService : VpnService(), DialerController {
             return START_NOT_STICKY
         }
 
-        updateStatusFile(true)
+        isRunning = true
 
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
@@ -43,9 +51,8 @@ class XrayVpnService : VpnService(), DialerController {
 
         createNotificationChannel()
 
-        val pendingIntent = Intent(this, Class.forName("com.pro100.tauriapp.MainActivity")).let { notificationIntent ->
-            android.app.PendingIntent.getActivity(this, 0, notificationIntent, android.app.PendingIntent.FLAG_IMMUTABLE)
-        }
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
+        val pendingIntent = android.app.PendingIntent.getActivity(this, 0, launchIntent, android.app.PendingIntent.FLAG_IMMUTABLE)
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Xray VPN")
@@ -82,9 +89,7 @@ class XrayVpnService : VpnService(), DialerController {
                         inputStream.copyTo(outputStream)
                     }
                 }
-            } catch (e: Exception) {
-                Log.e("XrayVPN", "Ошибка копирования $assetName", e)
-            }
+            } catch (e: Exception) {}
         }
     }
 
@@ -100,12 +105,9 @@ class XrayVpnService : VpnService(), DialerController {
 
             val tunFd = vpnInterface?.fd ?: return
 
-            try {
-                android.system.Os.setenv("GOMEMLIMIT", "40MiB", true)
-            } catch (e: Exception) {}
+            try { android.system.Os.setenv("GOMEMLIMIT", "40MiB", true) } catch (e: Exception) {}
 
             LibXray.initDns(this, "8.8.8.8:53")
-
             copyAsset("config.json")
             copyAsset("geoip.dat")
             copyAsset("geosite.dat")
@@ -114,11 +116,8 @@ class XrayVpnService : VpnService(), DialerController {
             val configPath = File(filesDir, "config.json").absolutePath
 
             val runRequest = LibXray.newXrayRunRequest(datDir, "", configPath, tunFd.toLong())
-            val result = LibXray.runXray(runRequest)
-            Log.d("XrayVPN", "Run Xray Result: $result")
-
+            LibXray.runXray(runRequest)
         } catch (e: Exception) {
-            Log.e("XrayVPN", "Ошибка", e)
             stopSelf()
         }
     }
@@ -137,15 +136,13 @@ class XrayVpnService : VpnService(), DialerController {
     }
 
     private fun stopVpn() {
-        updateStatusFile(false)
-        
+        isRunning = false
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
         } catch (e: Exception) {}
 
         try { vpnInterface?.close() } catch (e: Exception) {}
         vpnInterface = null
-        
         try { LibXray.stopXray() } catch (e: Exception) {}
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -156,9 +153,7 @@ class XrayVpnService : VpnService(), DialerController {
         }
         stopSelf()
         
-        Handler(Looper.getMainLooper()).postDelayed({
-            System.exit(0)
-        }, 100)
+        System.exit(0)
     }
 
     override fun onDestroy() {

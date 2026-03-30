@@ -7,6 +7,10 @@ android {
     namespace = "com.plugin.xray"
     compileSdk = 36
 
+    buildFeatures {
+        aidl = true
+    }
+
     defaultConfig {
         minSdk = 21
 

@@ -1,12 +1,15 @@
 package com.plugin.xray
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
-import android.os.FileObserver
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.webkit.WebView
 import androidx.core.content.ContextCompat
@@ -20,49 +23,12 @@ import org.json.JSONObject
 import java.io.File
 
 @InvokeArg
-class PingArgs {
-    var value: String? = null
-}
+class PingArgs { var value: String? = null }
 
 @TauriPlugin
 class ExamplePlugin(private val activity: Activity): Plugin(activity) {
-
-    private var fileObserver: FileObserver? = null
-
-    private fun notifyFrontend() {
-        activity.runOnUiThread {
-            try {
-                val statusFile = File(activity.filesDir, "xray_status.txt")
-                val isRunning = statusFile.exists() && statusFile.readText().trim() == "1"
-                val data = JSObject().apply { put("running", isRunning) }
-                trigger("vpn_state_changed", data)
-            } catch (e: Exception) {}
-        }
-    }
-
     override fun load(webView: WebView) {
         super.load(webView)
-
-        val statusFile = File(activity.filesDir, "xray_status.txt")
-        if (!statusFile.exists()) {
-            try { statusFile.writeText("0") } catch (e: Exception) {}
-        }
-
-        fileObserver = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            object : FileObserver(activity.filesDir, FileObserver.CLOSE_WRITE) {
-                override fun onEvent(event: Int, path: String?) {
-                    if (path == "xray_status.txt") notifyFrontend()
-                }
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            object : FileObserver(activity.filesDir.absolutePath, FileObserver.CLOSE_WRITE) {
-                override fun onEvent(event: Int, path: String?) {
-                    if (path == "xray_status.txt") notifyFrontend()
-                }
-            }
-        }
-        fileObserver?.startWatching()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (activity.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -85,6 +51,10 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
     @Command
     fun ping(invoke: Invoke) {
         try {
+            if (xrayService == null) {
+                bindAidlService()
+            }
+
             val args = invoke.parseArgs(PingArgs::class.java)
             val json = JSONObject(args.value ?: "{}")
             val action = json.optString("action")
@@ -92,28 +62,40 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
 
             when (action) {
                 "start" -> {
+                    android.util.Log.d("XrayApp", "Plugin: UI requested START")
                     val intent = Intent(activity, XrayVpnService::class.java).apply { this.action = "START" }
                     ContextCompat.startForegroundService(activity, intent)
                     ret.put("value", JSONObject().apply { put("success", true) }.toString())
                     invoke.resolve(ret)
                 }
                 "stop" -> {
+                    android.util.Log.d("XrayApp", "Plugin: UI requested STOP")
                     val intent = Intent(activity, XrayVpnService::class.java).apply { this.action = "STOP" }
                     ContextCompat.startForegroundService(activity, intent)
                     ret.put("value", JSONObject().apply { put("success", true) }.toString())
                     invoke.resolve(ret)
                 }
                 "status" -> {
-                    val statusFile = File(activity.filesDir, "xray_status.txt")
-                    val isRunning = statusFile.exists() && statusFile.readText().trim() == "1"
-                    ret.put("value", JSONObject().apply { put("running", isRunning) }.toString())
+                    var isRunning = false
+                    try {
+                        val cm = activity.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                        for (network in cm.allNetworks) {
+                            val caps = cm.getNetworkCapabilities(network)
+                            if (caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true) {
+                                isRunning = true
+                                break
+                            }
+                        }
+                    } catch (e: Exception) {}
+                    
+                    val resp = JSONObject().apply { put("running", isRunning) }
+                    ret.put("value", resp.toString())
                     invoke.resolve(ret)
                 }
                 else -> invoke.reject("Unknown action: $action")
             }
         } catch (e: Exception) {
-            invoke.reject("Error: ${e.message}")
-     
+            invoke.reject("Ошибка: ${e.message}")
         }
     }
 }

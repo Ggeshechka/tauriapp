@@ -18,15 +18,19 @@ class VpnTileService : TileService() {
 
     override fun onStartListening() {
         val tile = qsTile ?: return
-        tile.state = if (isVpnRunning()) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        val isRunning = XrayVpnService.isRunning
+        
+        tile.state = if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = "Xray VPN"
         tile.updateTile()
     }
 
     override fun onClick() {
         val tile = qsTile ?: return
+        android.util.Log.d("XrayApp", "Tile onClick. isRunning: ${XrayVpnService.isRunning}")
         
-        if (isVpnRunning()) {
+        if (XrayVpnService.isRunning) {
+            XrayVpnService.isRunning = false
             tile.state = Tile.STATE_INACTIVE
             tile.updateTile()
 

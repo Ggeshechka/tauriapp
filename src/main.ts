@@ -19,11 +19,12 @@ async function sendVpnCommand(action: string) {
     const data = JSON.parse(res.value || "{}");
     
     if (action === "status") {
-      updateUi(data.running);
-    } else if (action === "start") {
-      updateUi(true); // Мгновенная реакция при нажатии кнопки в приложении
-    } else if (action === "stop") {
-      updateUi(false); // Мгновенная реакция при нажатии кнопки в приложении
+      if (statusMsgEl) {
+        statusMsgEl.textContent = data.running ? "RUNNING" : "STOPPED";
+        statusMsgEl.style.color = data.running ? "#00ff00" : "#ff4444";
+      }
+    } else {
+      setTimeout(checkStatus, 500); 
     }
   } catch (error) {
     console.error("VPN Error:", error);
@@ -35,14 +36,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   
   document.querySelector("#btn-start")?.addEventListener("click", () => sendVpnCommand("start"));
   document.querySelector("#btn-stop")?.addEventListener("click", () => sendVpnCommand("stop"));
-  document.querySelector("#btn-status")?.addEventListener("click", () => sendVpnCommand("status"));
+  document.querySelector("#btn-status")?.addEventListener("click", checkStatus);
 
-  // Запрашиваем актуальный статус при запуске приложения
-  sendVpnCommand("status");
-
-  // Слушаем события, если VPN включили/выключили через системную шторку
-  await listen<{ running: boolean }>("vpn_state_changed", (event) => {
-    updateUi(event.payload.running);
-  })
-    ;
+  checkStatus();
 });
