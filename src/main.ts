@@ -36,7 +36,25 @@ window.addEventListener("DOMContentLoaded", async () => {
   
   document.querySelector("#btn-start")?.addEventListener("click", () => sendVpnCommand("start"));
   document.querySelector("#btn-stop")?.addEventListener("click", () => sendVpnCommand("stop"));
-  document.querySelector("#btn-status")?.addEventListener("click", checkStatus);
+  document.querySelector("#btn-status")?.addEventListener("click", () => sendVpnCommand("status"));
 
-  checkStatus();
-});
+  sendVpnCommand("status");
+
+  await listen<any>("vpn_state_changed", (event) => {
+    updateUi(event.payload.running);
+  });
+
+  await listen<any>("plugin:xray:vpn_state_changed", (event) => {
+    updateUi(event.payload.running);
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      sendVpnCommand("status");
+    }
+  });
+
+  window.addEventListener("focus", () => {
+    sendVpnCommand("status");
+  });
+});m
