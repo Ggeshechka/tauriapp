@@ -8,8 +8,6 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.webkit.WebView
 import androidx.core.content.ContextCompat
@@ -28,8 +26,24 @@ class PingArgs {
 
 @TauriPlugin
 class ExamplePlugin(private val activity: Activity): Plugin(activity) {
+
+    private val stateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val isRunning = intent.getBooleanExtra("running", false)
+            val data = JSObject().apply { put("running", isRunning) }
+            trigger("vpn_state_changed", data)
+        }
+    }
+
     override fun load(webView: WebView) {
         super.load(webView)
+
+        val filter = IntentFilter("com.plugin.xray.VPN_STATE_CHANGED")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            activity.registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            activity.registerReceiver(stateReceiver, filter)
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (activity.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -98,6 +112,7 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
             }
         } catch (e: Exception) {
             invoke.reject("Ошибка: ${e.message}")
+       
         }
     }
 }
