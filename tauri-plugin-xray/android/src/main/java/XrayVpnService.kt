@@ -23,6 +23,13 @@ class XrayVpnService : VpnService(), DialerController {
     private var vpnInterface: ParcelFileDescriptor? = null
     private val channelId = "vpn_service_channel"
 
+    private fun notifyStateChanged(isRunning: Boolean) {
+        val intent = Intent("com.plugin.xray.VPN_STATE_CHANGED")
+        intent.putExtra("running", isRunning)
+        intent.setPackage(packageName)
+        sendBroadcast(intent)
+    }
+    
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val reply = Intent("com.plugin.xray.VPN_STATUS_REPLY")
@@ -49,6 +56,7 @@ class XrayVpnService : VpnService(), DialerController {
         }
 
         isRunning = true
+        notifyStateChanged(true)
 
         try {
             android.service.quicksettings.TileService.requestListeningState(this, android.content.ComponentName(this, VpnTileService::class.java))
