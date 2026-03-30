@@ -30,12 +30,14 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
     private var fileObserver: FileObserver? = null
 
     private fun notifyFrontend() {
-        try {
-            val statusFile = File(activity.filesDir, "xray_status.txt")
-            val isRunning = statusFile.exists() && statusFile.readText().trim() == "1"
-            val data = JSObject().apply { put("running", isRunning) }
-            trigger("vpn_state_changed", data)
-        } catch (e: Exception) {}
+        activity.runOnUiThread {
+            try {
+                val statusFile = File(activity.filesDir, "xray_status.txt")
+                val isRunning = statusFile.exists() && statusFile.readText().trim() == "1"
+                val data = JSObject().apply { put("running", isRunning) }
+                trigger("vpn_state_changed", data)
+            } catch (e: Exception) {}
+        }
     }
 
     override fun load(webView: WebView) {
@@ -47,16 +49,16 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
         }
 
         fileObserver = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            object : FileObserver(statusFile, FileObserver.CLOSE_WRITE) {
+            object : FileObserver(activity.filesDir, FileObserver.CLOSE_WRITE) {
                 override fun onEvent(event: Int, path: String?) {
-                    notifyFrontend()
+                    if (path == "xray_status.txt") notifyFrontend()
                 }
             }
         } else {
             @Suppress("DEPRECATION")
-            object : FileObserver(statusFile.absolutePath, FileObserver.CLOSE_WRITE) {
+            object : FileObserver(activity.filesDir.absolutePath, FileObserver.CLOSE_WRITE) {
                 override fun onEvent(event: Int, path: String?) {
-                    notifyFrontend()
+                    if (path == "xray_status.txt") notifyFrontend()
                 }
             }
         }
