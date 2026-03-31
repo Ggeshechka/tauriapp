@@ -76,6 +76,13 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
 
         bindAidlService()
 
+        webView.viewTreeObserver.addOnWindowFocusChangeListener { hasFocus ->
+            if (hasFocus) {
+                val isRunning = try { xrayService?.isRunning ?: false } catch (e: Exception) { false }
+                notifyFrontend(isRunning)
+            }
+        }
+
         val filter = android.content.IntentFilter("com.plugin.xray.ACTION_VPN_STATE")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             activity.registerReceiver(wakeUpReceiver, filter, Context.RECEIVER_EXPORTED)
