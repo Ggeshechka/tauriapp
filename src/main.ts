@@ -56,4 +56,24 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.addEventListener("focus", () => {
     sendVpnCommand("status");
   });
+
+  // Отладочный таймер
+  let counter = 0;
+  const timerEl = document.createElement("div");
+  timerEl.style.fontSize = "120px";
+  timerEl.style.fontWeight = "bold";
+  timerEl.style.color = "#007bff";
+  timerEl.style.position = "absolute";
+  timerEl.style.top = "50%";
+  timerEl.style.left = "50%";
+  timerEl.style.transform = "translate(-50%, -50%)";
+  timerEl.style.zIndex = "9999";
+  document.body.appendChild(timerEl);
+
+  setInterval(() => {
+    counter++;
+    timerEl.textContent = counter.toString();
+    console.log("Timer: ", counter);
+  }, 
+              1000);
 });
