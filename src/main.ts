@@ -99,6 +99,5 @@ window.addEventListener("DOMContentLoaded", () => {
     if (document.visibilityState === "visible") checkStatus();
   });
 
-  window.addEventListener("focus", ch
-                          eckStatus);
+  window.addEventListener("focus", checkStatus);
 });
