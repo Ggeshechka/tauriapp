@@ -1,66 +1,99 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 
-let statusMsgEl: HTMLElement | null;
+const btn = document.getElementById("vpn-btn") as HTMLButtonElement;
+const btnText = document.getElementById("btn-text") as HTMLSpanElement;
+const spinner = document.getElementById("spinner") as HTMLDivElement;
+const errorMsg = document.getElementById("error-msg") as HTMLDivElement;
 
-function updateUi(isRunning: boolean) {
-  if (statusMsgEl) {
-    statusMsgEl.textContent = isRunning ? "RUNNING" : "STOPPED";
-    statusMsgEl.style.color = isRunning ? "#00ff00" : "#ff4444";
+let isRunning = false;
+let isProcessing = false;
+
+function updateUi(running: boolean, processing: boolean) {
+  isRunning = running;
+  isProcessing = processing;
+
+  btn.disabled = isProcessing;
+
+  if (isProcessing) {
+    btn.className = "state-loading";
+    btnText.classList.add("hidden");
+    spinner.classList.remove("hidden");
+    errorMsg.textContent = "";
+  } else {
+    spinner.classList.add("hidden");
+    btnText.classList.remove("hidden");
+    if (isRunning) {
+      btn.className = "state-running";
+      btnText.textContent = "STOP";
+    } else {
+      btn.className = "state-stopped";
+      btnText.textContent = "START";
+    }
   }
 }
 
-async function sendVpnCommand(action: string) {
+function showError(msg: string) {
+  errorMsg.textContent = msg;
+  setTimeout(() => { errorMsg.textContent = ""; }, 4000);
+}
+
+async function toggleVpn() {
+  if (isProcessing) return; // Защита от мисклика и спама
+
+  const targetAction = isRunning ? "stop" : "start";
+  updateUi(isRunning, true);
+
   try {
     const res: any = await invoke("plugin:xray|ping", {
-      payload: { value: JSON.stringify({ action: action }) }
+      payload: { value: JSON.stringify({ action: targetAction }) }
     });
     
     const data = JSON.parse(res.value || "{}");
     
-    if (action === "status") {
-      updateUi(data.running);
-    } else if (action === "start") {
-      updateUi(true);
-    } else if (action === "stop") {
-      updateUi(false);
+    // Искусственная минимальная задержка (500мс) чтобы юзер увидел статус загрузки
+    await new Promise(r => setTimeout(r, 500));
+
+    if (data.success) {
+      updateUi(targetAction === "start", false);
+    } else {
+      updateUi(isRunning, false);
+      showError("Ошибка запуска ядра");
     }
-  } catch (error) {
-    console.error("VPN Error:", error);
+  } catch (error: any) {
+    updateUi(isRunning, false);
+    showError("Системная ошибка: " + error.toString());
   }
 }
 
-window.addEventListener("DOMContentLoaded", async () => {
-  statusMsgEl = document.querySelector("#status-msg");
+async function checkStatus() {
+  if (isProcessing) return;
   
-  document.querySelector("#btn-start")?.addEventListener("click", () => sendVpnCommand("start"));
-  document.querySelector("#btn-stop")?.addEventListener("click", () => sendVpnCommand("stop"));
-  document.querySelector("#btn-status")?.addEventListener("click", () => sendVpnCommand("status"));
+  try {
+    const res: any = await invoke("plugin:xray|ping", {
+      payload: { value: JSON.stringify({ action: "status" }) }
+    });
+    const data = JSON.parse(res.value || "{}");
+    updateUi(data.running, false);
+  } catch (error) {
+    console.error("Status error:", error);
+  }
+}
 
-  sendVpnCommand("status");
+window.addEventListener("DOMContentLoaded", () => {
+  btn.addEventListener("click", toggleVpn);
+  checkStatus();
 
-  // Стандартные события Tauri
-  await listen<any>("vpn_state_changed", (event) => {
-    updateUi(event.payload.running);
-  });
-
-  await listen<any>("plugin:xray:vpn_state_changed", (event) => {
-    updateUi(event.payload.running);
-  });
-
-  // Прямое нативное событие из Android (работает всегда)
+  // Прямое обновление из шторки (если юзер переключил не через кнопку)
   window.addEventListener("native_vpn_update", ((e: CustomEvent) => {
-    updateUi(e.detail.running);
+    if (!isProcessing) {
+      updateUi(e.detail.running, false);
+    }
   }) as EventListener);
 
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      sendVpnCommand("status");
-    }
+    if (document.visibilityState === "visible") checkStatus();
   });
 
-  window.addEventListener("focus", () => {
-    sendVpnCommand("status");
-
-  });
+  window.addEventListener("focus", che
+                          ckStatus);
 });
