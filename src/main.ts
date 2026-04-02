@@ -39,6 +39,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   sendVpnCommand("status");
 
+  // Стандартные события Tauri
   await listen<any>("vpn_state_changed", (event) => {
     updateUi(event.payload.running);
   });
@@ -46,6 +47,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   await listen<any>("plugin:xray:vpn_state_changed", (event) => {
     updateUi(event.payload.running);
   });
+
+  // Прямое нативное событие из Android (работает всегда)
+  window.addEventListener("native_vpn_update", ((e: CustomEvent) => {
+    updateUi(e.detail.running);
+  }) as EventListener);
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
@@ -55,25 +61,6 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   window.addEventListener("focus", () => {
     sendVpnCommand("status");
+
   });
-
-  // Отладочный таймер
-  let counter = 0;
-  const timerEl = document.createElement("div");
-  timerEl.style.fontSize = "120px";
-  timerEl.style.fontWeight = "bold";
-  timerEl.style.color = "#007bff";
-  timerEl.style.position = "absolute";
-  timerEl.style.top = "50%";
-  timerEl.style.left = "50%";
-  timerEl.style.transform = "translate(-50%, -50%)";
-  timerEl.style.zIndex = "9999";
-  document.body.appendChild(timerEl);
-
-  setInterval(() => {
-    counter++;
-    timerEl.textContent = counter.toString();
-    console.log("Timer: ", counter);
-  }, 
-              1000);
 });
