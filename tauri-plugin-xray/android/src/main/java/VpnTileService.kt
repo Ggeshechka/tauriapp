@@ -39,5 +39,6 @@ class VpnTileService : TileService() {
                 ContextCompat.startForegroundService(this, intent)
             }
         }
+  
     }
 }
