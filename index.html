@@ -1,19 +1,19 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VPN Control</title>
-    <script type="module" src="/src/main.ts" defer></script>
-  </head>
-  <body style="background: #1e1e1e; color: white; font-family: sans-serif; padding: 20px;">
-    <main>
-      <h1>VPN Status: <span id="status-msg" style="color: #ffcc00;">Check...</span></h1>
-      <div style="margin-top: 20px;">
-        <button id="btn-start" style="padding: 10px 20px; font-size: 16px; margin-right: 10px; cursor: pointer;">Start VPN</button>
-        <button id="btn-stop" style="padding: 10px 20px; font-size: 16px; margin-right: 10px; cursor: pointer;">Stop VPN</button>
-        <button id="btn-status" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Check Status</button>
-      </div>
-    </main>
-  </body>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VPN Client</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <button id="vpn-btn" class="state-stopped">
+      <span id="btn-text">START</span>
+      <div id="spinner" class="hidden"></div>
+    </button>
+    <div id="error-msg"></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>
