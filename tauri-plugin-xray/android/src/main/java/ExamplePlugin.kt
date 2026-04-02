@@ -27,11 +27,19 @@ class PingArgs { var value: String? = null }
 class ExamplePlugin(private val activity: Activity): Plugin(activity) {
 
     private var xrayService: IXrayStatus? = null
+    private var mainWebView: WebView? = null
 
     private fun notifyFrontend(isRunning: Boolean) {
         activity.runOnUiThread {
+            // Стандартный способ Tauri
             val data = JSObject().apply { put("running", isRunning) }
             trigger("vpn_state_changed", data)
+            
+            // Прямой проброс события в работающий DOM (обходит паузу Tauri)
+            mainWebView?.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('native_vpn_update', {detail: {running: $isRunning}}));", 
+                null
+            )
         }
     }
 
@@ -73,6 +81,7 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
 
     override fun load(webView: WebView) {
         super.load(webView)
+        mainWebView = webView
 
         bindAidlService()
 
