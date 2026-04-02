@@ -1,16 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 
-const btn = document.getElementById("vpn-btn") as HTMLButtonElement;
-const btnText = document.getElementById("btn-text") as HTMLSpanElement;
-const spinner = document.getElementById("spinner") as HTMLDivElement;
-const errorMsg = document.getElementById("error-msg") as HTMLDivElement;
-
 let isRunning = false;
 let isProcessing = false;
 
 function updateUi(running: boolean, processing: boolean) {
   isRunning = running;
   isProcessing = processing;
+
+  const btn = document.getElementById("vpn-btn") as HTMLButtonElement | null;
+  const btnText = document.getElementById("btn-text");
+  const spinner = document.getElementById("spinner");
+  const errorMsg = document.getElementById("error-msg");
+
+  if (!btn || !btnText || !spinner || !errorMsg) return;
 
   btn.disabled = isProcessing;
 
@@ -33,24 +35,26 @@ function updateUi(running: boolean, processing: boolean) {
 }
 
 function showError(msg: string) {
-  errorMsg.textContent = msg;
-  setTimeout(() => { errorMsg.textContent = ""; }, 4000);
+  const errorMsg = document.getElementById("error-msg");
+  if (errorMsg) {
+    errorMsg.textContent = msg;
+    setTimeout(() => { errorMsg.textContent = ""; }, 4000);
+  }
 }
 
 async function toggleVpn() {
-  if (isProcessing) return; // Защита от мисклика и спама
+  if (isProcessing) return;
 
   const targetAction = isRunning ? "stop" : "start";
   updateUi(isRunning, true);
 
   try {
-    const res: any = await invoke("plugin:xray|ping", {
+    const res = await invoke<any>("plugin:xray|ping", {
       payload: { value: JSON.stringify({ action: targetAction }) }
     });
     
     const data = JSON.parse(res.value || "{}");
     
-    // Искусственная минимальная задержка (500мс) чтобы юзер увидел статус загрузки
     await new Promise(r => setTimeout(r, 500));
 
     if (data.success) {
@@ -61,7 +65,7 @@ async function toggleVpn() {
     }
   } catch (error: any) {
     updateUi(isRunning, false);
-    showError("Системная ошибка: " + error.toString());
+    showError("Системная ошибка: " + String(error));
   }
 }
 
@@ -69,7 +73,7 @@ async function checkStatus() {
   if (isProcessing) return;
   
   try {
-    const res: any = await invoke("plugin:xray|ping", {
+    const res = await invoke<any>("plugin:xray|ping", {
       payload: { value: JSON.stringify({ action: "status" }) }
     });
     const data = JSON.parse(res.value || "{}");
@@ -80,13 +84,14 @@ async function checkStatus() {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  btn.addEventListener("click", toggleVpn);
+  const btn = document.getElementById("vpn-btn");
+  if (btn) btn.addEventListener("click", toggleVpn);
+  
   checkStatus();
 
-  window.addEventListener("native_vpn_update", (e: Event) => {
-    const customEvent = e as CustomEvent;
-    if (!isProcessing) {
-      updateUi(customEvent.detail.running, false);
+  window.addEventListener("native_vpn_update", (e: any) => {
+    if (!isProcessing && e?.detail) {
+      updateUi(e.detail.running, false);
     }
   });
 
@@ -94,6 +99,6 @@ window.addEventListener("DOMContentLoaded", () => {
     if (document.visibilityState === "visible") checkStatus();
   });
 
-  window.addEventListener("focus", che
-                          ckStatus);
+  window.addEventListener("focus", ch
+                          eckStatus);
 });
