@@ -83,12 +83,12 @@ window.addEventListener("DOMContentLoaded", () => {
   btn.addEventListener("click", toggleVpn);
   checkStatus();
 
-  // Прямое обновление из шторки (если юзер переключил не через кнопку)
-  window.addEventListener("native_vpn_update", ((e: CustomEvent) => {
+  window.addEventListener("native_vpn_update", (e: Event) => {
+    const customEvent = e as CustomEvent;
     if (!isProcessing) {
-      updateUi(e.detail.running, false);
+      updateUi(customEvent.detail.running, false);
     }
-  }) as EventListener);
+  });
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") checkStatus();
