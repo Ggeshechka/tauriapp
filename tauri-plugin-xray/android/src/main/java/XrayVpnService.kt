@@ -108,13 +108,25 @@ class XrayVpnService : VpnService(), DialerController {
 
     private fun startCore() {
         try {
-            vpnInterface = Builder()
+            val builder = Builder()
                 .setSession("Xray-TUN")
                 .addAddress("10.8.0.1", 24)
                 .addDnsServer("8.8.8.8")
                 .addRoute("0.0.0.0", 0)
                 .addDisallowedApplication(packageName)
-                .establish()
+
+            // Список пакетов для исключения из VPN
+            val bypassApps = listOf(
+                "ru.ufanet.smarthome",
+            )
+            
+            for (app in bypassApps) {
+                try {
+                    builder.addDisallowedApplication(app)
+                } catch (e: Exception) {}
+            }
+
+            vpnInterface = builder.establish()
 
             val tunFd = vpnInterface?.fd ?: return
 
