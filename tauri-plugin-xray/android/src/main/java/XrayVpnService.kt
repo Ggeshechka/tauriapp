@@ -115,11 +115,9 @@ class XrayVpnService : VpnService(), DialerController {
                 .addRoute("0.0.0.0", 0)
                 .addDisallowedApplication(packageName)
 
-            // Список пакетов для исключения из VPN
-            val bypassApps = listOf(
-                "ru.ufanet.smarthome",
-            )
-            
+            val prefs = getSharedPreferences("vpn_settings", Context.MODE_PRIVATE)
+            val bypassApps = prefs.getStringSet("bypass_apps", emptySet()) ?: emptySet()
+
             for (app in bypassApps) {
                 try {
                     builder.addDisallowedApplication(app)

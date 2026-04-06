@@ -34,9 +34,10 @@ function updateUi(running: boolean, processing: boolean) {
   }
 }
 
-function showError(msg: string) {
+function showMessage(msg: string, isError = true) {
   const errorMsg = document.getElementById("error-msg");
   if (errorMsg) {
+    errorMsg.style.color = isError ? "#ff4444" : "#00C853";
     errorMsg.textContent = msg;
     setTimeout(() => { errorMsg.textContent = ""; }, 4000);
   }
@@ -61,11 +62,11 @@ async function toggleVpn() {
       updateUi(targetAction === "start", false);
     } else {
       updateUi(isRunning, false);
-      showError("Ошибка запуска ядра");
+      showMessage("Ошибка запуска ядра");
     }
   } catch (error: any) {
     updateUi(isRunning, false);
-    showError("Системная ошибка: " + String(error));
+    showMessage("Системная ошибка: " + String(error));
   }
 }
 
@@ -83,11 +84,43 @@ async function checkStatus() {
   }
 }
 
+async function loadApps() {
+  try {
+    const res = await invoke<any>("plugin:xray|ping", {
+      payload: { value: JSON.stringify({ action: "get_apps" }) }
+    });
+    const data = JSON.parse(res.value || "{}");
+    const textarea = document.getElementById("bypass-apps") as HTMLTextAreaElement;
+    if (textarea && data.apps) {
+      textarea.value = data.apps.join("\n");
+    }
+  } catch (e) {}
+}
+
+async function saveApps() {
+  const textarea = document.getElementById("bypass-apps") as HTMLTextAreaElement;
+  if (!textarea) return;
+  
+  const apps = textarea.value.split("\n").map(s => s.trim()).filter(s => s.length > 0);
+  try {
+    await invoke<any>("plugin:xray|ping", {
+      payload: { value: JSON.stringify({ action: "save_apps", apps }) }
+    });
+    showMessage("Исключения сохранены", false);
+  } catch (e) {
+    showMessage("Ошибка сохранения");
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("vpn-btn");
   if (btn) btn.addEventListener("click", toggleVpn);
   
+  const saveBtn = document.getElementById("save-apps-btn");
+  if (saveBtn) saveBtn.addEventListener("click", saveApps);
+  
   checkStatus();
+  loadApps();
 
   window.addEventListener("native_vpn_update", (e: any) => {
     if (!isProcessing && e?.detail) {

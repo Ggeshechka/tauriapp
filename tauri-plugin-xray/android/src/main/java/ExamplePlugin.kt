@@ -18,6 +18,7 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import org.json.JSONArray
 import org.json.JSONObject
 
 @InvokeArg
@@ -31,11 +32,9 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
 
     private fun notifyFrontend(isRunning: Boolean) {
         activity.runOnUiThread {
-            // Стандартный способ Tauri
             val data = JSObject().apply { put("running", isRunning) }
             trigger("vpn_state_changed", data)
             
-            // Прямой проброс события в работающий DOM (обходит паузу Tauri)
             mainWebView?.evaluateJavascript(
                 "window.dispatchEvent(new CustomEvent('native_vpn_update', {detail: {running: $isRunning}}));", 
                 null
@@ -157,6 +156,27 @@ class ExamplePlugin(private val activity: Activity): Plugin(activity) {
                         } catch (e: Exception) {}
                     }
                     ret.put("value", JSONObject().apply { put("running", isRunning) }.toString())
+                    invoke.resolve(ret)
+                }
+                "save_apps" -> {
+                    val appsArray = json.optJSONArray("apps")
+                    val set = mutableSetOf<String>()
+                    if (appsArray != null) {
+                        for (i in 0 until appsArray.length()) {
+                            set.add(appsArray.getString(i))
+                        }
+                    }
+                    val prefs = activity.getSharedPreferences("vpn_settings", Context.MODE_PRIVATE)
+                    prefs.edit().putStringSet("bypass_apps", set).apply()
+                    ret.put("value", JSONObject().apply { put("success", true) }.toString())
+                    invoke.resolve(ret)
+                }
+                "get_apps" -> {
+                    val prefs = activity.getSharedPreferences("vpn_settings", Context.MODE_PRIVATE)
+                    val set = prefs.getStringSet("bypass_apps", emptySet()) ?: emptySet()
+                    val arr = JSONArray()
+                    set.forEach { arr.put(it) }
+                    ret.put("value", JSONObject().apply { put("apps", arr) }.toString())
                     invoke.resolve(ret)
                 }
                 else -> invoke.reject("Unknown action: $action")
