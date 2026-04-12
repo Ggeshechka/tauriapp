@@ -1,11 +1,19 @@
 {
+    "log": {
+        "loglevel": "warning"
+    },
+    "fakedns": [
+        {
+            "ipPool": "198.18.0.0/15",
+            "poolSize": 65535
+        }
+    ],
     "dns": {
-        "queryStrategy": "UseIPv4",
+        "queryStrategy": "IPIfNonMatch",
         "servers": [
-            {
-                "address": "https://dns.google/dns-query",
-                "skipFallback": false
-            }
+            "fakedns",
+            "8.8.8.8",
+            "1.1.1.1"
         ],
         "tag": "dns_out"
     },
@@ -23,38 +31,8 @@
                 "routeOnly": true
             },
             "tag": "tun-in"
-        },
-        {
-            "port": 10808,
-            "protocol": "socks",
-            "settings": {
-                "auth": "noauth",
-                "udp": true,
-                "userLevel": 8
-            },
-            "sniffing": {
-                "destOverride": [
-                    "http",
-                    "tls",
-                    "fakedns"
-                ],
-                "enabled": true
-            },
-            "tag": "socks"
-        },
-        {
-            "port": 10809,
-            "protocol": "http",
-            "settings": {
-                "userLevel": 8
-            },
-            "tag": "http"
         }
     ],
-    "log": {
-        "loglevel": "warning"
-    },
-    "meta": null,
     "outbounds": [
         {
             "protocol": "vless",
@@ -79,10 +57,10 @@
                     "fingerprint": "chrome",
                     "publicKey": "NP5h1YxJALizPrsdRAuk1Sc2JAWYhtg3Pe0JqGSyVhY",
                     "serverName": "de2.safelane.pro",
-                    "shortId": "69d0c943a62745d6"
+                    "shortId": "69d0c943a62745d6",
+                    "show": false
                 },
-                "security": "reality",
-                "tcpSettings": {}
+                "security": "reality"
             },
             "tag": "proxy"
         },
@@ -101,10 +79,28 @@
             "statsOutboundUplink": true
         }
     },
-    "remarks": "🇩🇪 Германия",
     "routing": {
-        "domainStrategy": "UseIPv4",
+        "domainStrategy": "IPIfNonMatch",
         "rules": [
+            {
+                "type": "field",
+                "domain": [
+                    "habr.com",
+                    "4pda.to",
+                    "4pda.ru",
+                    "kemono.su",
+                    "jut.su",
+                    "kara.su",
+                    "theins.ru",
+                    "tvrain.ru",
+                    "echo.msk.ru",
+                    "the-village.ru",
+                    "snob.ru",
+                    "novayagazeta.ru",
+                    "moscowtimes.ru"
+                ],
+                "outboundTag": "proxy"
+            },
             {
                 "type": "field",
                 "domain": [
@@ -129,6 +125,5 @@
                 "outboundTag": "direct"
             }
         ]
-    },
-    "stats": {}
+    }
 }
