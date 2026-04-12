@@ -1,17 +1,7 @@
 {
-    "log": {
-        "loglevel": "warning"
-    },
-    "fakedns": [
-        {
-            "ipPool": "198.18.0.0/15",
-            "poolSize": 65535
-        }
-    ],
     "dns": {
-        "queryStrategy": "IPIfNonMatch",
+        "queryStrategy": "UseIPv4",
         "servers": [
-            "fakedns",
             {
                 "address": "https://dns.google/dns-query",
                 "skipFallback": false
@@ -33,21 +23,51 @@
                 "routeOnly": true
             },
             "tag": "tun-in"
+        },
+        {
+            "port": 10808,
+            "protocol": "socks",
+            "settings": {
+                "auth": "noauth",
+                "udp": true,
+                "userLevel": 8
+            },
+            "sniffing": {
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "fakedns"
+                ],
+                "enabled": true
+            },
+            "tag": "socks"
+        },
+        {
+            "port": 10809,
+            "protocol": "http",
+            "settings": {
+                "userLevel": 8
+            },
+            "tag": "http"
         }
     ],
+    "log": {
+        "loglevel": "warning"
+    },
+    "meta": null,
     "outbounds": [
         {
             "protocol": "vless",
             "settings": {
                 "vnext": [
                     {
-                        "address": "de.safelane.pro",
+                        "address": "de2.safelane.pro",
                         "port": 443,
                         "users": [
                             {
                                 "encryption": "none",
                                 "flow": "xtls-rprx-vision",
-                                "id": "b329191a-6c5c-447a-800a-482cee25693b"
+                                "id": "a07610aa-07ac-46e1-b1e3-83a2bd15515d"
                             }
                         ]
                     }
@@ -58,11 +78,11 @@
                 "realitySettings": {
                     "fingerprint": "chrome",
                     "publicKey": "NP5h1YxJALizPrsdRAuk1Sc2JAWYhtg3Pe0JqGSyVhY",
-                    "serverName": "de.safelane.pro",
-                    "shortId": "69d0c943a62745d6",
-                    "show": false
+                    "serverName": "de2.safelane.pro",
+                    "shortId": "69d0c943a62745d6"
                 },
-                "security": "reality"
+                "security": "reality",
+                "tcpSettings": {}
             },
             "tag": "proxy"
         },
@@ -81,28 +101,19 @@
             "statsOutboundUplink": true
         }
     },
+    "remarks": "🇩🇪 Германия",
     "routing": {
-        "domainStrategy": "IPIfNonMatch",
+        "domainStrategy": "UseIPv4",
         "rules": [
             {
+                "type": "field",
                 "domain": [
-                    "habr.com",
-                    "4pda.to",
-                    "4pda.ru",
-                    "kemono.su",
-                    "jut.su",
-                    "kara.su",
-                    "theins.ru",
-                    "tvrain.ru",
-                    "echo.msk.ru",
-                    "the-village.ru",
-                    "snob.ru",
-                    "novayagazeta.ru",
-                    "moscowtimes.ru"
+                    "geosite:category-ads-all"
                 ],
-                "outboundTag": "proxy"
+                "outboundTag": "block"
             },
             {
+                "type": "field",
                 "domain": [
                     "geosite:private",
                     "geosite:apple",
@@ -117,6 +128,7 @@
                 "outboundTag": "direct"
             },
             {
+                "type": "field",
                 "ip": [
                     "geoip:ru",
                     "geoip:private"
@@ -124,5 +136,6 @@
                 "outboundTag": "direct"
             }
         ]
-    }
+    },
+    "stats": {}
 }
