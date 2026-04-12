@@ -108,13 +108,6 @@
             {
                 "type": "field",
                 "domain": [
-                    "geosite:category-ads-all"
-                ],
-                "outboundTag": "block"
-            },
-            {
-                "type": "field",
-                "domain": [
                     "geosite:private",
                     "geosite:apple",
                     "geosite:apple-pki",
